@@ -14,6 +14,8 @@
 #include "keyboard.h"
 #include "linux-gui.h"
 #include "main.h"
+#include "mem.h"
+#include "midi-linux.h"
 #include "model.h"
 #include "mouse.h"
 #include "music5000.h"
@@ -25,8 +27,14 @@
 #include "tape.h"
 #include "tube.h"
 #include "vdfs.h"
+#include "video.h"
 #include "video_render.h"
 
+#define ROM_LABEL_LEN 50
+
+#if defined(HAVE_JACK_JACK_H) || defined(HAVE_ALSA_ASOUNDLIB_H)
+#define HAVE_MIDI
+#endif
 
 #undef printf
 
@@ -34,7 +42,7 @@ int timerspeeds[] = {5, 12, 25, 38, 50, 75, 100, 150, 200, 250};
 int frameskips[]  = {0, 0,  0,  0,  0,  0,  1,   2,   3,   4};
 int emuspeed = 4;
 
-void setejecttext(int d, char *s)
+void setejecttext(int d, const char *s)
 {
 }
 
@@ -45,7 +53,7 @@ MENU filemenu[6];
 MENU discmenu[12];
 MENU tapespdmenu[3];
 MENU tapemenu[5];
-MENU modelmenu[17];
+MENU modelmenu[NUM_MODELS+1];
 MENU tubespdmenu[6];
 #ifdef NS32016
 MENU tubemenu[7];
@@ -54,7 +62,7 @@ MENU tubemenu[6];
 #endif
 MENU displaymenu[4];
 MENU bordersmenu[4];
-MENU videomenu[4];
+MENU videomenu[5];
 MENU sidtypemenu[15];
 MENU methodmenu[3];
 MENU residmenu[3];
@@ -63,12 +71,67 @@ MENU ddtypemenu[3];
 MENU ddvolmenu[4];
 MENU soundmenu[12];
 MENU keymenu[3];
+#ifdef HAVE_MIDI
+static MENU m4000menu[4];
+static MENU m2000out1menu[4];
+static MENU m2000out2menu[4];
+static MENU m2000out3menu[4];
+static MENU midimenu[5];
+#endif
 MENU mousemenu[2];
 MENU hdiskmenu[4];
-MENU settingsmenu[8];
+MENU settingsmenu[9];
 MENU miscmenu[6];
 MENU speedmenu[11];
-MENU mainmenu[6];
+MENU mainmenu[7];
+
+#ifdef HAVE_MIDI
+
+static void gui_m4000_update(void) {
+    int i = 0;
+#ifdef HAVE_JACK_JACK_H
+    m4000menu[i++].flags = (midi_music4000.jack_enabled) ? D_SELECTED : 0;
+#endif
+#ifdef HAVE_ALSA_ASOUNDLIB_H
+    m4000menu[i++].flags = (midi_music4000.alsa_seq_enabled) ? D_SELECTED : 0;
+    m4000menu[i++].flags = (midi_music4000.alsa_raw_enabled) ? D_SELECTED : 0;
+#endif
+}
+
+static void gui_m2000_out1_update(void) {
+    int i = 0;
+#ifdef HAVE_JACK_JACK_H
+    m2000out1menu[i++].flags = (midi_music2000_out1.jack_enabled) ? D_SELECTED : 0;
+#endif
+#ifdef HAVE_ALSA_ASOUNDLIB_H
+    m2000out1menu[i++].flags = (midi_music2000_out1.alsa_seq_enabled) ? D_SELECTED : 0;
+    m2000out1menu[i++].flags = (midi_music2000_out1.alsa_raw_enabled) ? D_SELECTED : 0;
+#endif
+}
+
+static void gui_m2000_out2_update(void) {
+    int i = 0;
+#ifdef HAVE_JACK_JACK_H
+    m2000out2menu[i++].flags = (midi_music2000_out2.jack_enabled) ? D_SELECTED : 0;
+#endif
+#ifdef HAVE_ALSA_ASOUNDLIB_H
+    m2000out2menu[i++].flags = (midi_music2000_out2.alsa_seq_enabled) ? D_SELECTED : 0;
+    m2000out2menu[i++].flags = (midi_music2000_out2.alsa_raw_enabled) ? D_SELECTED : 0;
+#endif
+}
+
+static void gui_m2000_out3_update(void) {
+    int i = 0;
+#ifdef HAVE_JACK_JACK_H
+    m2000out3menu[i++].flags = (midi_music2000_out3.jack_enabled) ? D_SELECTED : 0;
+#endif
+#ifdef HAVE_ALSA_ASOUNDLIB_H
+    m2000out3menu[i++].flags = (midi_music2000_out3.alsa_seq_enabled) ? D_SELECTED : 0;
+    m2000out3menu[i++].flags = (midi_music2000_out3.alsa_raw_enabled) ? D_SELECTED : 0;
+#endif
+}
+
+#endif
 
 void gui_update()
 {
@@ -79,12 +142,11 @@ void gui_update()
         discmenu[9].flags = (vdfs_enabled) ? D_SELECTED : 0;
         tapespdmenu[0].flags = (!fasttape) ? D_SELECTED : 0;
         tapespdmenu[1].flags = (fasttape)  ? D_SELECTED : 0;
-        for (x = 0; x < 16; x++) modelmenu[x].flags = 0;
-	for (x = 0; x < 16; x++)
-	{
-		if (curmodel == (intptr_t)modelmenu[x].dp)
-		   modelmenu[x].flags = D_SELECTED;
-	}
+        for (x = 0; x < NUM_MODELS; x++) modelmenu[x].flags = 0;
+        for (x = 0; x < NUM_MODELS; x++) {
+            if (curmodel == (intptr_t)modelmenu[x].dp)
+                modelmenu[x].flags = D_SELECTED;
+        }
         #ifdef NS32016
         for (x = 0; x < 5; x++)  tubemenu[x].flags = (selecttube == (intptr_t)tubemenu[x].dp) ? D_SELECTED : 0;
         #else
@@ -95,6 +157,7 @@ void gui_update()
         displaymenu[1].flags = (vid_scanlines) ? D_SELECTED : 0;
         displaymenu[2].flags = (vid_interlace) ? D_SELECTED : 0;
         videomenu[2].flags = (fullscreen) ? D_SELECTED : 0;
+        videomenu[3].flags = (nula_disable) ? 0 : D_SELECTED;
         for (x = 0; x < 3; x++)  bordersmenu[x].flags = (vid_fullborders == (intptr_t)bordersmenu[x].dp) ? D_SELECTED : 0;
         soundmenu[0].flags = (sound_internal) ? D_SELECTED : 0;
         soundmenu[1].flags = (sound_beebsid)  ? D_SELECTED : 0;
@@ -110,6 +173,12 @@ void gui_update()
         ddtypemenu[0].flags = (!ddnoise_type) ? D_SELECTED : 0;
         ddtypemenu[1].flags = (ddnoise_type)  ? D_SELECTED : 0;
         for (x = 0; x < 3; x++)  ddvolmenu[x].flags = (ddnoise_vol == (intptr_t)ddvolmenu[x].dp) ? D_SELECTED : 0;
+#ifdef HAVE_MIDI
+        gui_m4000_update();
+        gui_m2000_out1_update();
+        gui_m2000_out2_update();
+        gui_m2000_out3_update();
+#endif
         keymenu[1].flags = (keyas) ? D_SELECTED : 0;
         mousemenu[0].flags = (mouse_amx) ? D_SELECTED : 0;
         for (x = 0; x < 10; x++) speedmenu[x].flags = (emuspeed == (intptr_t)speedmenu[x].dp) ? D_SELECTED : 0;
@@ -141,11 +210,11 @@ int gui_loadss()
         char tempname[260];
         int ret;
         int xsize = windx - 32, ysize = windy - 16;
-        memcpy(tempname, discfns[0], 260);
+        memcpy(tempname, discfns[0], sizeof tempname);
         ret = file_select_ex("Please choose a save state", tempname, "SNP", 260, xsize, ysize);
         if (ret)
         {
-                strcpy(savestate_name, tempname);
+                strncpy(savestate_name, tempname, sizeof savestate_name);
                 savestate_load();
         }
         gui_update();
@@ -162,11 +231,11 @@ int gui_savess()
                 alert(NULL, "Second processor save states not supported yet.", NULL, "&OK", NULL, 0, 0);
                 return D_CLOSE;
         }
-        memcpy(tempname, discfns[0], 260);
+        memcpy(tempname, discfns[0], sizeof tempname);
         ret = file_select_ex("Please choose a save state", tempname, "SNP", 260, xsize, ysize);
         if (ret)
         {
-                strcpy(savestate_name, tempname);
+                strncpy(savestate_name, tempname, sizeof savestate_name);
                 savestate_save();
         }
         gui_update();
@@ -188,17 +257,17 @@ static int gui_load_drive(int drive, const char *prompt)
         char tempname[260];
         int ret;
         int xsize = windx - 32, ysize = windy - 16;
-        memcpy(tempname, discfns[drive], 260);
+        memcpy(tempname, discfns[drive], sizeof tempname);
         ret = file_select_ex(prompt, tempname, "SSD;DSD;IMG;ADF;ADL;FDI", 260, xsize, ysize);
         if (ret)
         {
-                disc_close(drive);
-                memcpy(discfns[drive], tempname, 260);
-                disc_load(drive, discfns[drive]);
-                if (defaultwriteprot)
-                        writeprot[drive] = 1;
+            ALLEGRO_PATH *path = al_create_path(tempname);
+            disc_close(drive);
+            disc_load(drive, path);
+            al_destroy_path(path);
+            if (defaultwriteprot)
+                writeprot[drive] = 1;
         }
-        gui_update();
         return ret;
 }
 
@@ -218,26 +287,27 @@ int gui_autoboot()
 int gui_load0()
 {
         gui_load_drive(0, "Please choose a disc image to load in drive 0/2");
+        gui_update();
         return D_CLOSE;
 }
 
 int gui_load1()
 {
         gui_load_drive(1, "Please choose a disc image to load in drive 1/3");
+        gui_update();
         return D_CLOSE;
 }
 
 int gui_eject0()
 {
-        disc_close(0);
-        discfns[0][0] = 0;
-        return D_CLOSE;
+    disc_close(0);
+    return D_CLOSE;
 }
+
 int gui_eject1()
 {
-        disc_close(1);
-        discfns[1][0] = 0;
-        return D_CLOSE;
+    disc_close(1);
+    return D_CLOSE;
 }
 
 int gui_wprot0()
@@ -270,7 +340,7 @@ int gui_hdisk()
         {
                 if (sel != 0)
                 {
-                        ide_enable = 0;
+                        ide_enable = false;
                         changed = 1;
                 }
         }
@@ -278,7 +348,7 @@ int gui_hdisk()
         {
                 if (sel == 0)
                 {
-                        ide_enable = 1;
+                        ide_enable = true;
                         changed = 1;
                 }
         }
@@ -286,7 +356,7 @@ int gui_hdisk()
         {
                 if (sel != 1)
                 {
-                        scsi_enabled = 0;
+                        scsi_enabled = false;
                         changed = 1;
                 }
         }
@@ -294,7 +364,7 @@ int gui_hdisk()
         {
                 if (sel == 1)
                 {
-                        scsi_enabled = 1;
+                        scsi_enabled = true;
                         changed = 1;
                 }
         }
@@ -323,7 +393,7 @@ int gui_vdfs_root() {
         int ret;
         int xsize = windx - 32, ysize = windy - 16;
         strncpy(tempname, vdfs_get_root(), sizeof(tempname));
-        memcpy(tempname, discfns[1], 260);
+        memcpy(tempname, discfns[0], sizeof tempname);
         ret = file_select_ex("Please select VDFS root directory", tempname, NULL, 260, xsize, ysize);
         if (ret)
             vdfs_set_root(tempname);
@@ -349,13 +419,13 @@ MENU discmenu[12]=
 
 int gui_normal()
 {
-        fasttape = 0;
+        fasttape = false;
         gui_update();
         return D_CLOSE;
 }
 int gui_fast()
 {
-        fasttape = 1;
+        fasttape = true;
         gui_update();
         return D_CLOSE;
 }
@@ -372,14 +442,14 @@ int gui_loadt()
         char tempname[260];
         int ret;
         int xsize = windx - 32, ysize = windy - 16;
-        memcpy(tempname, tape_fn, 260);
+        memcpy(tempname, al_path_cstr(tape_fn, ALLEGRO_NATIVE_PATH_SEP), 260);
         ret=file_select_ex("Please choose a tape image", tempname, "UEF;CSW", 260, xsize, ysize);
         if (ret)
         {
-                tape_close();
-                memcpy(tape_fn, tempname, 260);
-                tape_load(tape_fn);
-                tape_loaded = 1;
+            tape_close();
+            tape_fn = al_create_path(tempname);
+            tape_load(tape_fn);
+            tape_loaded = 1;
         }
         return D_CLOSE;
 }
@@ -409,6 +479,7 @@ MENU tapemenu[]=
 
 int gui_model()
 {
+        model_save();
         oldmodel = curmodel;
         curmodel = (intptr_t)active_menu->dp;
         main_restart();
@@ -416,14 +487,20 @@ int gui_model()
         return D_CLOSE;
 }
 
-MENU modelmenu[17]=
+MENU modelmenu[NUM_MODELS+1]=
 {
         {"BBC A w/OS 0.1",            gui_model, NULL, 0, (void *)0},
         {"BBC B w/OS 0.1",            gui_model, NULL, 0, (void *)1},
         {"BBC A",                     gui_model, NULL, 0, (void *)2},
         {"BBC B w/8271 FDC",          gui_model, NULL, 0, (void *)3},
         {"BBC B w/8271+SWRAM",        gui_model, NULL, 0, (void *)4},
-        {"BBC B w/1770 FDC",          gui_model, NULL, 0, (void *)5},
+        {"BBC B wo/FDC w/SWRAM",      gui_model, NULL, 0, (void *)16},
+        {"BBC B w/Acorn 1770 FDC",    gui_model, NULL, 0, (void *)5},
+        {"BBC B w/Opus 1770 FDC",     gui_model, NULL, 0, (void *)18},
+        {"BBC B w/Solidisk 1770 FDC", gui_model, NULL, 0, (void *)17},
+        {"BBC B w/Watford 1770 FDC",  gui_model, NULL, 0, (void *)19},
+        {"BBC B with 65C02, no FDC",  gui_model, NULL, 0, (void *)20},
+        {"BBC B 65C02, Acorn 1770",   gui_model, NULL, 0, (void *)21},
         {"BBC B US",                  gui_model, NULL, 0, (void *)6},
         {"BBC B German",              gui_model, NULL, 0, (void *)7},
         {"BBC B+ 64K",                gui_model, NULL, 0, (void *)8},
@@ -541,11 +618,21 @@ int gui_fullscreen()
         return D_EXIT;
 }
 
-MENU videomenu[4] =
+static int gui_video_nula()
+{
+    if (nula_disable)
+        nula_disable = 0;
+    else
+        nula_disable = 1;
+    return D_EXIT;
+}
+
+MENU videomenu[5] =
 {
         {"Display type", NULL,           displaymenu, 0, NULL},
         {"Borders",      NULL,           bordersmenu, 0, NULL},
         {"Fullscreen",   gui_fullscreen, NULL,        0, NULL},
+        {"NuLA",         gui_video_nula, NULL,        0, NULL},
         {NULL, NULL, NULL, 0, NULL}
 };
 
@@ -705,6 +792,148 @@ MENU soundmenu[12]=
         {NULL, NULL, NULL, 0, NULL}
 };
 
+#ifdef HAVE_MIDI
+
+#ifdef HAVE_JACK_JACK_H
+
+static int gui_m4000_jack(void) {
+    midi_music4000.jack_enabled = !midi_music4000.jack_enabled;
+    gui_m4000_update();
+    return D_CLOSE;
+}
+
+static int gui_m2000_out1_jack(void) {
+    midi_music2000_out1.jack_enabled = !midi_music2000_out1.jack_enabled;
+    gui_m2000_out1_update();
+    return D_CLOSE;
+}
+
+static int gui_m2000_out2_jack(void) {
+    midi_music2000_out2.jack_enabled = !midi_music2000_out2.jack_enabled;
+    gui_m2000_out2_update();
+    return D_CLOSE;
+}
+
+static int gui_m2000_out3_jack(void) {
+    midi_music2000_out3.jack_enabled = !midi_music2000_out3.jack_enabled;
+    gui_m2000_out3_update();
+    return D_CLOSE;
+}
+
+#endif
+
+#ifdef HAVE_ALSA_ASOUNDLIB_H
+
+static int gui_m4000_alsa_seq(void) {
+    midi_music4000.alsa_seq_enabled = !midi_music4000.alsa_seq_enabled;
+    gui_m4000_update();
+    return D_CLOSE;
+}
+
+static int gui_m2000_out1_alsa_seq(void) {
+    midi_music2000_out1.alsa_seq_enabled = !midi_music2000_out1.alsa_seq_enabled;
+    gui_m2000_out1_update();
+    return D_CLOSE;
+}
+
+static int gui_m2000_out2_alsa_seq(void) {
+    midi_music2000_out2.alsa_seq_enabled = !midi_music2000_out2.alsa_seq_enabled;
+    gui_m2000_out2_update();
+    return D_CLOSE;
+}
+
+static int gui_m2000_out3_alsa_seq(void) {
+    midi_music2000_out3.alsa_seq_enabled = !midi_music2000_out3.alsa_seq_enabled;
+    gui_m2000_out3_update();
+    return D_CLOSE;
+}
+
+static int gui_m4000_alsa_raw(void) {
+    midi_music4000.alsa_raw_enabled = !midi_music4000.alsa_raw_enabled;
+    gui_m4000_update();
+    return D_CLOSE;
+}
+
+static int gui_m2000_out1_alsa_raw(void) {
+    midi_music2000_out1.alsa_raw_enabled = !midi_music2000_out1.alsa_raw_enabled;
+    gui_m2000_out1_update();
+    return D_CLOSE;
+}
+
+static int gui_m2000_out2_alsa_raw(void) {
+    midi_music2000_out2.alsa_raw_enabled = !midi_music2000_out2.alsa_raw_enabled;
+    gui_m2000_out2_update();
+    return D_CLOSE;
+}
+
+static int gui_m2000_out3_alsa_raw(void) {
+    midi_music2000_out3.alsa_raw_enabled = !midi_music2000_out3.alsa_raw_enabled;
+    gui_m2000_out3_update();
+    return D_CLOSE;
+}
+
+#endif
+
+static MENU m4000menu[4]=
+{
+#ifdef HAVE_JACK_JACK_H
+    {"JACK MIDI",      gui_m4000_jack,          NULL, 0, NULL},
+#endif
+#ifdef HAVE_ALSA_ASOUNDLIB_H
+    {"ALSA Sequencer", gui_m4000_alsa_seq,      NULL, 0, NULL},
+    {"ALSA Raw MIDI",  gui_m4000_alsa_raw,      NULL, 0, NULL},
+#endif
+        {NULL, NULL, NULL, 0, NULL}
+};
+
+static MENU m2000out1menu[4]=
+{
+#ifdef HAVE_JACK_JACK_H
+    {"JACK MIDI",      gui_m2000_out1_jack,     NULL, 0, NULL},
+#endif
+#ifdef HAVE_ALSA_ASOUNDLIB_H
+    {"ALSA Sequencer", gui_m2000_out1_alsa_seq, NULL, 0, NULL},
+    {"ALSA Raw MIDI",  gui_m2000_out1_alsa_raw, NULL, 0, NULL},
+#endif
+        {NULL, NULL, NULL, 0, NULL}
+};
+
+static MENU m2000out2menu[4]=
+{
+#ifdef HAVE_JACK_JACK_H
+    {"JACK MIDI",      gui_m2000_out2_jack,     NULL, 0, NULL},
+#endif
+#ifdef HAVE_ALSA_ASOUNDLIB_H
+    {"ALSA Sequencer", gui_m2000_out2_alsa_seq, NULL, 0, NULL},
+    {"ALSA Raw MIDI",  gui_m2000_out2_alsa_raw, NULL, 0, NULL},
+#endif
+        {NULL, NULL, NULL, 0, NULL}
+};
+
+static MENU m2000out3menu[4]=
+{
+#ifdef HAVE_JACK_JACK_H
+    {"JACK MIDI",      gui_m2000_out3_jack,     NULL, 0, NULL},
+#endif
+#ifdef HAVE_ALSA_ASOUNDLIB_H
+    {"ALSA Sequencer", gui_m2000_out3_alsa_seq, NULL, 0, NULL},
+    {"ALSA Raw MIDI",  gui_m2000_out3_alsa_raw, NULL, 0, NULL},
+#endif
+        {NULL, NULL, NULL, 0, NULL}
+};
+
+static MENU midimenu[5]=
+{
+    {"Music 4000 Keyboard",  NULL, m4000menu,     0, NULL },
+    {"Music 2000 I/F Out 1", NULL, m2000out1menu, 0, NULL },
+    {"Music 2000 I/F Out 2", NULL, m2000out2menu, 0, NULL },
+    {"Music 2000 I/F Out 3", NULL, m2000out3menu, 0, NULL },
+    {NULL, NULL, NULL, 0, NULL}
+};
+
+#endif
+
+
 int gui_mapas()
 {
         keyas = !keyas;
@@ -733,12 +962,15 @@ MENU mousemenu[2] =
 };
 
 
-MENU settingsmenu[8]=
+MENU settingsmenu[9]=
 {
         {"&Model",            NULL, modelmenu, 0, NULL},
         {"&Second processor", NULL, tubemenu,  0, NULL},
         {"&Video",            NULL, videomenu, 0, NULL},
         {"&Sound",            NULL, soundmenu, 0, NULL},
+#ifdef HAVE_MIDI
+        {"M&idi",             NULL, midimenu,  0, NULL},
+#endif
         {"&Keyboard",         NULL, keymenu,   0, NULL},
         {"&Mouse",            NULL, mousemenu, 0, NULL},
         {NULL, NULL, NULL, 0, NULL}
@@ -812,11 +1044,240 @@ MENU miscmenu[6] =
         {NULL, NULL, NULL, 0, NULL}
 };
 
-MENU mainmenu[6] =
+static int gui_rom_togram(void) {
+    rom_slot_t *slotp = active_menu->dp;
+
+    if (!slotp->locked) {
+        if (slotp->swram) {
+            slotp->swram = 0;
+            active_menu->flags &= ~D_SELECTED;
+        } else {
+            slotp->swram = 1;
+            active_menu->flags |= D_SELECTED;
+        }
+    }
+    return D_CLOSE;
+}
+
+static int gui_rom_clear(void) {
+    rom_slot_t *slotp = active_menu->dp;
+
+    if (!slotp->locked)
+        mem_clearrom(slotp - rom_slots);
+    return D_CLOSE;
+}
+
+static int gui_rom_load(void) {
+    rom_slot_t *slotp = active_menu->dp;
+    int ret, slot, xsize = windx - 32, ysize = windy - 16;
+    char tempname[PATH_MAX];
+
+    if (!slotp->locked) {
+        if (slotp->name)
+            strncpy(tempname, slotp->name, sizeof tempname-1);
+        else
+            tempname[0] = 0;
+        ret = file_select_ex("Please choose a ROM image file", tempname, "ROM", sizeof tempname, xsize, ysize);
+        if (ret) {
+            slot = slotp - rom_slots;
+            mem_clearrom(slot);
+            mem_loadrom(slot, get_filename(tempname), tempname, 0);
+        }
+    }
+    return D_CLOSE;
+}
+
+static MENU rom15menu[4] =
+{
+    { "RAM",   gui_rom_togram, NULL, 0, rom_slots + 15 },
+    { "Clear", gui_rom_clear,  NULL, 0, rom_slots + 15 },
+    { "Load",  gui_rom_load,   NULL, 0, rom_slots + 15 },
+    {NULL, NULL, NULL, 0, NULL}
+};
+
+static MENU rom14menu[4] =
+{
+    { "RAM",   gui_rom_togram, NULL, 0, rom_slots + 14 },
+    { "Clear", gui_rom_clear,  NULL, 0, rom_slots + 14 },
+    { "Load",  gui_rom_load,   NULL, 0, rom_slots + 14 },
+    {NULL, NULL, NULL, 0, NULL}
+};
+
+static MENU rom13menu[4] =
+{
+    { "RAM",   gui_rom_togram, NULL, 0, rom_slots + 13 },
+    { "Clear", gui_rom_clear,  NULL, 0, rom_slots + 13 },
+    { "Load",  gui_rom_load,   NULL, 0, rom_slots + 13 },
+    {NULL, NULL, NULL, 0, NULL}
+};
+
+static MENU rom12menu[4] =
+{
+    { "RAM",   gui_rom_togram, NULL, 0, rom_slots + 12 },
+    { "Clear", gui_rom_clear,  NULL, 0, rom_slots + 12 },
+    { "Load",  gui_rom_load,   NULL, 0, rom_slots + 12 },
+    {NULL, NULL, NULL, 0, NULL}
+};
+
+static MENU rom11menu[4] =
+{
+    { "RAM",   gui_rom_togram, NULL, 0, rom_slots + 11 },
+    { "Clear", gui_rom_clear,  NULL, 0, rom_slots + 11 },
+    { "Load",  gui_rom_load,   NULL, 0, rom_slots + 11 },
+    {NULL, NULL, NULL, 0, NULL}
+};
+
+static MENU rom10menu[4] =
+{
+    { "RAM",   gui_rom_togram, NULL, 0, rom_slots + 10 },
+    { "Clear", gui_rom_clear,  NULL, 0, rom_slots + 10 },
+    { "Load",  gui_rom_load,   NULL, 0, rom_slots + 10 },
+    {NULL, NULL, NULL, 0, NULL}
+};
+
+static MENU rom09menu[4] =
+{
+    { "RAM",   gui_rom_togram, NULL, 0, rom_slots + 9 },
+    { "Clear", gui_rom_clear,  NULL, 0, rom_slots + 9 },
+    { "Load",  gui_rom_load,   NULL, 0, rom_slots + 9 },
+    {NULL, NULL, NULL, 0, NULL}
+};
+
+static MENU rom08menu[4] =
+{
+    { "RAM",   gui_rom_togram, NULL, 0, rom_slots + 8 },
+    { "Clear", gui_rom_clear,  NULL, 0, rom_slots + 8 },
+    { "Load",  gui_rom_load,   NULL, 0, rom_slots + 8 },
+    {NULL, NULL, NULL, 0, NULL}
+};
+
+static MENU rom07menu[4] =
+{
+    { "RAM",   gui_rom_togram, NULL, 0, rom_slots + 7 },
+    { "Clear", gui_rom_clear,  NULL, 0, rom_slots + 7 },
+    { "Load",  gui_rom_load,   NULL, 0, rom_slots + 7 },
+    {NULL, NULL, NULL, 0, NULL}
+};
+
+static MENU rom06menu[4] =
+{
+    { "RAM",   gui_rom_togram, NULL, 0, rom_slots + 6 },
+    { "Clear", gui_rom_clear,  NULL, 0, rom_slots + 6 },
+    { "Load",  gui_rom_load,   NULL, 0, rom_slots + 6 },
+    {NULL, NULL, NULL, 0, NULL}
+};
+
+static MENU rom05menu[4] =
+{
+    { "RAM",   gui_rom_togram, NULL, 0, rom_slots + 5 },
+    { "Clear", gui_rom_clear,  NULL, 0, rom_slots + 5 },
+    { "Load",  gui_rom_load,   NULL, 0, rom_slots + 5 },
+    {NULL, NULL, NULL, 0, NULL}
+};
+
+static MENU rom04menu[4] =
+{
+    { "RAM",   gui_rom_togram, NULL, 0, rom_slots + 4 },
+    { "Clear", gui_rom_clear,  NULL, 0, rom_slots + 4 },
+    { "Load",  gui_rom_load,   NULL, 0, rom_slots + 4 },
+    {NULL, NULL, NULL, 0, NULL}
+};
+
+static MENU rom03menu[4] =
+{
+    { "RAM",   gui_rom_togram, NULL, 0, rom_slots + 3 },
+    { "Clear", gui_rom_clear,  NULL, 0, rom_slots + 3 },
+    { "Load",  gui_rom_load,   NULL, 0, rom_slots + 3 },
+    {NULL, NULL, NULL, 0, NULL}
+};
+
+static MENU rom02menu[4] =
+{
+    { "RAM",   gui_rom_togram, NULL, 0, rom_slots + 2 },
+    { "Clear", gui_rom_clear,  NULL, 0, rom_slots + 2 },
+    { "Load",  gui_rom_load,   NULL, 0, rom_slots + 2 },
+    {NULL, NULL, NULL, 0, NULL}
+};
+
+static MENU rom01menu[4] =
+{
+    { "RAM",   gui_rom_togram, NULL, 0, rom_slots + 1 },
+    { "Clear", gui_rom_clear,  NULL, 0, rom_slots + 1 },
+    { "Load",  gui_rom_load,   NULL, 0, rom_slots + 1 },
+    {NULL, NULL, NULL, 0, NULL}
+};
+
+static MENU rom00menu[4] =
+{
+    { "RAM",   gui_rom_togram, NULL, 0, rom_slots + 0 },
+    { "Clear", gui_rom_clear,  NULL, 0, rom_slots + 0 },
+    { "Load",  gui_rom_load,   NULL, 0, rom_slots + 0 },
+    {NULL, NULL, NULL, 0, NULL}
+};
+
+static char gui_rom_labels[ROM_NSLOT][ROM_LABEL_LEN];
+
+static MENU rommenu[17] =
+{
+    { gui_rom_labels[15], NULL, rom15menu, 0, rom_slots + 15 },
+    { gui_rom_labels[14], NULL, rom14menu, 0, rom_slots + 14 },
+    { gui_rom_labels[13], NULL, rom13menu, 0, rom_slots + 13 },
+    { gui_rom_labels[12], NULL, rom12menu, 0, rom_slots + 12 },
+    { gui_rom_labels[11], NULL, rom11menu, 0, rom_slots + 11 },
+    { gui_rom_labels[10], NULL, rom10menu, 0, rom_slots + 10 },
+    { gui_rom_labels[9],  NULL, rom09menu, 0, rom_slots + 9 },
+    { gui_rom_labels[8],  NULL, rom08menu, 0, rom_slots + 8 },
+    { gui_rom_labels[7],  NULL, rom07menu, 0, rom_slots + 7 },
+    { gui_rom_labels[6],  NULL, rom06menu, 0, rom_slots + 6 },
+    { gui_rom_labels[5],  NULL, rom05menu, 0, rom_slots + 5 },
+    { gui_rom_labels[4],  NULL, rom04menu, 0, rom_slots + 4 },
+    { gui_rom_labels[3],  NULL, rom03menu, 0, rom_slots + 3 },
+    { gui_rom_labels[2],  NULL, rom02menu, 0, rom_slots + 2 },
+    { gui_rom_labels[1],  NULL, rom01menu, 0, rom_slots + 1 },
+    { gui_rom_labels[0],  NULL, rom00menu, 0, rom_slots },
+    {NULL, NULL, NULL, 0, NULL}
+};
+
+static void gui_init_rommenu(void) {
+    int slot, ver;
+    const uint8_t *detail;
+    const char *rr, *name;
+    MENU *menup;
+
+    for (slot = 0; slot < ROM_NSLOT; slot++) {
+        rr = rom_slots[slot].swram ? "RAM" : "ROM";
+        detail = mem_romdetail(slot);
+        name = rom_slots[slot].name;
+        if (detail) {
+            ver = *detail++;
+            if (name)
+                snprintf(gui_rom_labels[slot], ROM_LABEL_LEN, "%02d %s: %s %02X (%s)", slot, rr, detail, ver, name);
+            else
+                snprintf(gui_rom_labels[slot], ROM_LABEL_LEN, "%02d %s: %s %02X", slot, rr, detail, ver);
+        } else {
+            if (name)
+                snprintf(gui_rom_labels[slot], ROM_LABEL_LEN, "%02d %s: %s", slot, rr, name);
+            else
+                snprintf(gui_rom_labels[slot], ROM_LABEL_LEN, "%02d %s", slot, rr);
+        }
+        menup = rommenu + ROM_NSLOT - 1 - slot;
+        if (rom_slots[slot].swram)
+            menup->child[0].flags |= D_SELECTED;
+        else
+            menup->child[0].flags &= ~D_SELECTED;
+        if (rom_slots[slot].locked)
+            menup->flags |= D_DISABLED;
+        else
+            menup->flags &= ~D_DISABLED;
+    }
+}
+
+MENU mainmenu[7] =
 {
         {"&File",     NULL,filemenu,     0, NULL},
         {"&Disc",     NULL,discmenu,     0, NULL},
         {"&Tape",     NULL,tapemenu,     0, NULL},
+        {"&ROM",      NULL,rommenu,      0, NULL},
         {"&Settings", NULL,settingsmenu, 0, NULL},
         {"&Misc",     NULL,miscmenu,     0, NULL},
         {NULL, NULL, NULL, 0, NULL}
@@ -837,20 +1298,21 @@ BITMAP *guib;
 void gui_enter()
 {
         int x = 1;
-        DIALOG_PLAYER *dp;       
-        
+        DIALOG_PLAYER *dp;
+
         while (keypressed()) readkey();
         while (key[KEY_F11]) rest(100);
 
         gui_update();
 
         if (curtube != 3 && !mouse_amx) install_mouse();
-        
+
         set_color_depth(dcol);
         show_mouse(screen);
         bemgui[0].x  = (windx / 2) - 36;
         bemgui[0].y  = windy - 8;
         bemgui[0].fg = makecol(255,255,255);
+        gui_init_rommenu();
         dp=init_dialog(bemgui, 0);
         while (x && !key[KEY_F11] && !key[KEY_ESC])
         {
@@ -861,7 +1323,7 @@ void gui_enter()
         set_color_depth(8);
 
         if (curtube != 3 && !mouse_amx) remove_mouse();
-        
+
         while (key[KEY_F11]) rest(100);
 
         video_clearscreen();

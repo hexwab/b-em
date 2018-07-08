@@ -1,7 +1,7 @@
 VPATH = . resid-fp NS32016 darm
 
-CPP  = g++.exe
-CC   = gcc.exe
+CPP  = i686-w64-mingw32-g++.exe
+CC   = i686-w64-mingw32-gcc.exe
 WINDRES = windres.exe
 
 # The following flags are used by PiTubeDirect Co Pros:
@@ -9,7 +9,7 @@ WINDRES = windres.exe
 #   INCLUDE_DEBUGGER - include the cpu_debug implementation
 # USE_MEMORY_POINTER - do not assume Co Pro memory starts at address 0
 
-COMMON_FLAGS = -O3 -Wall -DBEM -DVERSION=\"Win32\" -DINCLUDE_DEBUGGER -DUSE_MEMORY_POINTER
+COMMON_FLAGS = -O3 -D_DEBUG -Wall -I ../../allegro5/include -DBEM -DVERSION=\"Win32\" -DINCLUDE_DEBUGGER -DUSE_MEMORY_POINTER
 CFLAGS       = -std=gnu99 $(COMMON_FLAGS)
 CXXFLAGS     = $(COMMON_FLAGS)
 
@@ -20,7 +20,6 @@ OBJ = \
     65816.o \
     acia.o \
     adc.o \
-    adf.o \
     arm.o \
     darm.o \
     darm-tbl.o \
@@ -42,25 +41,31 @@ OBJ = \
     disc.o \
     fdi2raw.o \
     fdi.o \
+    gui-allegro.o \
     i8271.o \
     ide.o \
     keyboard.o \
+    keydef-allegro.o \
     logging.o \
     main.o \
     mem.o \
+    midi-windows.o \
     model.o \
     mouse.o \
+    music2000.o \
+    music4000.o \
     music5000.o \
     pal.o \
     savestate.o \
     scsi.o \
+    sdf.o \
     serial.o \
     sn76489.o \
     sound.o \
-    soundopenal.o \
-    ssd.o \
+    sysacia.o \
     sysvia.o \
     tape.o \
+    tapecat-allegro.o \
     tapenoise.o \
     tsearch.o \
     tube.o \
@@ -72,8 +77,6 @@ OBJ = \
     video.o \
     wd1770.o \
     win.o \
-    win-catalogue.o \
-    win-keydefine.o \
     x86.o \
     x86dasm.o \
     z80.o \
@@ -108,7 +111,7 @@ SIDOBJ = \
     wave8580_PST.o \
     wave.o
 
-LIBS =  -mwindows -lalleg -lz -lalut -lopenal32 -lgdi32 -lwinmm -lstdc++
+LIBS = -L ../../allegro5/lib -lallegro_audio -lallegro_acodec -lallegro_primitives -lallegro_dialog -lallegro_image -lallegro_font -lallegro -mwindows -lz -lgdi32 -lwinmm -lstdc++
 
 all : b-em.exe
 

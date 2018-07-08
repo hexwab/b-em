@@ -49,6 +49,7 @@
 #define IDM_VIDEO_INTERLACED 40053
 #define IDM_VIDEO_PAL        40054
 #define IDM_VIDEO_PALI       40055
+#define IDM_VIDEO_NULA       40056
 #define IDM_KEY_REDEFINE     40060
 #define IDM_KEY_AS           40061
 #define IDM_DDV_33           40070
@@ -87,6 +88,14 @@
 #define IDM_SID_TYPE         41100
 #define IDM_SID_INTERP       41200
 #define IDM_SID_RESAMP       41201
+
+#define IDM_ROM_CONFIG       41300
+#define IDD_ROM_CONFIG       41301
+#define IDC_ROMLIST          41302
+#define IDC_SELECT_ROM       41303
+#define IDC_MARK_ROM         41304
+#define IDC_MARK_RAM         41305
+#define IDC_CLEAR_ROM        41306
 
 #define Button1 1000
 #define ListBox1 40900

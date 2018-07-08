@@ -1,16 +1,20 @@
 #ifndef __INC_KEYBOARD_H
 #define __INC_KEYBOARD_H
 
-extern int keycol,keyrow;
-extern int bbckey[16][16];
+extern int kbdips;
 
-extern int keylookup[128];
-extern int keyas;
+extern int keylookup[ALLEGRO_KEY_MAX];
+extern bool keyas;
 
-void key_press(int row, int col);
-void key_release(int row, int col);
-void key_clear();
-void key_check();
-void key_update();
+extern int key_map(ALLEGRO_EVENT *event);
+extern void key_down(int code);
+extern void key_up(int code);
+
+extern void key_clear(void);
+extern void key_check(void);
+extern void key_paste_start(char *str);
+extern void key_paste_poll(void);
+extern void key_scan(int row, int col);
+extern int key_is_down(void);
 
 #endif

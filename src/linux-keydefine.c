@@ -1,6 +1,7 @@
 /*B-em v2.2 by Tom Walker
   Linux keyboard redefinition GUI*/
 
+#if 0
 #ifndef WIN32
 #include <allegro.h>
 #include "b-em.h"
@@ -307,10 +308,9 @@ int gui_keydefine()
         b=create_bitmap(d[0].w,d[0].h);
         blit(screen,b,x,y,0,0,d[0].w,d[0].h);
         dp=init_dialog(d,0);
-        while (x && !key[KEY_F11] && !(mouse_b&2) && !key[KEY_ESC])
-        {
-                x=update_dialog(dp);
-        }
+        do
+            x=update_dialog(dp);
+        while (x && !key[KEY_F11] && !(mouse_b&2) && !key[KEY_ESC]);
         shutdown_dialog(dp);
         if (x==1)
         {
@@ -328,4 +328,5 @@ int gui_keydefine()
         }
         return D_CLOSE;
 }
+#endif
 #endif
