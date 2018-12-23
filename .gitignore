@@ -27,3 +27,7 @@ B-Em.geany
 src/VDFS5
 src/vdfs.lst
 src/version.asm
+src/jstest
+src/jstest.exe
+src/gtest
+src/gtest.exe

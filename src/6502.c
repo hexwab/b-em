@@ -161,7 +161,7 @@ static uint32_t dbg_disassemble(uint32_t addr, char *buf, size_t bufsize) {
 int tubecycle;
 
 int output = 0;
-int timetolive = 0;
+static int timetolive = 0;
 
 static int cycles;
 static int otherstuffcount = 0;
@@ -340,8 +340,7 @@ static uint32_t do_readmem(uint32_t addr)
                 break;
 
         case 0xFC5C:
-                if (vdfs_enabled)
-                    return vdfs_read(addr);
+                return vdfs_read(addr);
                 break;
 
         case 0xFE00:
@@ -522,8 +521,7 @@ static void do_writemem(uint32_t addr, uint32_t val)
                 break;
 
         case 0xFC5C:
-                if (vdfs_enabled)
-                    vdfs_write(addr, val);
+                vdfs_write(addr, val);
                 break;
 
         case 0xFE00:

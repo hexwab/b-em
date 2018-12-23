@@ -4,9 +4,8 @@
 #include "b-em.h"
 #include "gui-allegro.h"
 #include "fdi.h"
-#include "sdf.h"
-
 #include "disc.h"
+#include "sdf.h"
 
 #include "ddnoise.h"
 
@@ -36,78 +35,23 @@ int  (*fdc_getdata)(int last);
 
 void disc_load(int drive, ALLEGRO_PATH *fn)
 {
-    const char *p;
+    const char *ext;
     const char *cpath;
 
     if (!fn)
         return;
-    p = al_get_path_extension(fn);
-    if (!p)
-        return;
-    if (*p == '.')
-        p++;
     gui_allegro_set_eject_text(drive, fn);
     cpath = al_path_cstr(fn, ALLEGRO_NATIVE_PATH_SEP);
-    if (strcasecmp(p, "fdi") == 0) {
-        log_debug("Loading %i: %s as FDI", drive, cpath);
-        fdi_load(drive, cpath);
-    } else {
-        log_debug("Loading %i: %s as SDF", drive, cpath);
-        sdf_load(drive, cpath);
+    if ((ext = al_get_path_extension(fn))) {
+        if (*ext == '.')
+            ext++;
+        if (strcasecmp(ext, "fdi") == 0) {
+            log_debug("Loading %i: %s as FDI", drive, cpath);
+            fdi_load(drive, cpath);
+            return;
+        }
     }
-}
-
-void disc_new(int drive, ALLEGRO_PATH *fn)
-{
-    const char *cpath;
-    FILE *f;
-
-    const char *p = al_get_path_extension(fn);
-    if (p == NULL) {
-        log_error("The filename needs an extension to identify the format");
-        return;
-    }
-    cpath = al_path_cstr(fn, ALLEGRO_NATIVE_PATH_SEP);
-    if (!strcasecmp(p, "ADF")) {
-        if ((f = fopen(cpath, "wb"))) {
-            fseek(f, 0, SEEK_SET);
-            putc(7, f);
-            fseek(f, 0xFD, SEEK_SET);
-            putc(5, f); putc(0, f); putc(0xC, f); putc(0xF9, f); putc(0x04, f);
-            fseek(f, 0x1FB, SEEK_SET);
-            putc(0x88,f); putc(0x39,f); putc(0,f); putc(3,f); putc(0xC1,f);
-            putc(0, f); putc('H', f); putc('u', f); putc('g', f); putc('o', f);
-            fseek(f, 0x6CC, SEEK_SET);
-            putc(0x24, f);
-            fseek(f, 0x6D6, SEEK_SET);
-            putc(2, f); putc(0, f); putc(0, f); putc(0x24, f);
-            fseek(f, 0x6FB, SEEK_SET);
-            putc('H', f); putc('u', f); putc('g', f); putc('o', f);
-            fclose(f);
-            disc_load(drive, fn);
-        } else
-            log_error("Unable to open disk image %s for writing: %s", cpath, strerror(errno));
-    } else if (!strcasecmp(p, "ADL")) {
-        if ((f = fopen(cpath, "wb"))) {
-            fseek(f, 0, SEEK_SET);
-            putc(7, f);
-            fseek(f, 0xFD, SEEK_SET);
-            putc(0xA, f); putc(0, f); putc(0x11, f); putc(0xF9, f); putc(0x09, f);
-            fseek(f, 0x1FB, SEEK_SET);
-            putc(0x01, f); putc(0x84, f); putc(0, f); putc(3, f); putc(0x8A, f);
-            putc(0, f); putc('H', f); putc('u', f); putc('g', f); putc('o', f);
-            fseek(f, 0x6CC, SEEK_SET);
-            putc(0x24, f);
-            fseek(f, 0x6D6, SEEK_SET);
-            putc(2, f); putc(0, f); putc(0, f); putc(0x24, f);
-            fseek(f, 0x6FB, SEEK_SET);
-            putc('H', f); putc('u', f); putc('g', f); putc('o', f);
-            fclose(f);
-            disc_load(drive, fn);
-        } else
-            log_error("Unable to open disk image %s for writing: %s", cpath, strerror(errno));
-    } else
-        log_error("Creating new disks of format %s not supported", p);
+    sdf_load(drive, cpath, ext);
 }
 
 void disc_close(int drive)

@@ -12,6 +12,7 @@
 #include "ide.h"
 #include "midi.h"
 #include "scsi.h"
+#include "sdf.h"
 #include "sn76489.h"
 #include "sound.h"
 #include "tape.h"
@@ -105,6 +106,11 @@ void config_load(void)
                 al_destroy_path(discfns[1]);
             discfns[1] = al_create_path(p);
         }
+        if ((p = get_config_string("disc", "mmb", NULL))) {
+            if (mmb_fn)
+                free(mmb_fn);
+            mmb_fn = strdup(p);
+        }
         if ((p = get_config_string("tape", "tape", NULL))) {
             if (tape_fn)
                 al_destroy_path(tape_fn);
@@ -183,6 +189,14 @@ void set_config_string(const char *sect, const char *key, const char *value)
         al_remove_config_key(bem_cfg, sect, key);
 }
 
+static void set_config_path(const char *sect, const char *key, ALLEGRO_PATH *path)
+{
+    if (path)
+        al_set_config_value(bem_cfg, sect, key, al_path_cstr(path, ALLEGRO_NATIVE_PATH_SEP));
+    else
+        al_remove_config_key(bem_cfg, sect, key);
+}
+
 void config_save(void)
 {
     ALLEGRO_PATH *path;
@@ -201,12 +215,10 @@ void config_save(void)
         }
         model_savecfg();
 
-        if (discfns[0])
-            al_set_config_value(bem_cfg, "disc", "disc0", al_path_cstr(discfns[0], ALLEGRO_NATIVE_PATH_SEP));
-        if (discfns[1])
-            al_set_config_value(bem_cfg, "disc", "disc1", al_path_cstr(discfns[1], ALLEGRO_NATIVE_PATH_SEP));
-        if (tape_fn)
-            al_set_config_value(bem_cfg, "tape", "tape", al_path_cstr(tape_fn, ALLEGRO_NATIVE_PATH_SEP));
+        set_config_path("disc", "disc0", discfns[0]);
+        set_config_path("disc", "disc1", discfns[1]);
+        set_config_string("disc", "mmb", mmb_fn);
+        set_config_path("tape", "tape", tape_fn);
 
         set_config_bool("disc", "defaultwriteprotect", defaultwriteprot);
 
