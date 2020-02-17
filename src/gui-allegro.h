@@ -46,11 +46,10 @@ typedef enum {
     IDM_MODEL,
     IDM_TUBE,
     IDM_TUBE_SPEED,
-    IDM_VIDEO_LINEDBL,
-    IDM_VIDEO_SCANLINES,
-    IDM_VIDEO_INTERLACED,
+    IDM_VIDEO_DISPTYPE,
     IDM_VIDEO_PAL,
     IDM_VIDEO_BORDERS,
+    IDM_VIDEO_WINSIZE,
     IDM_VIDEO_FULLSCR,
     IDM_VIDEO_NULA,
     IDM_SOUND_INTERNAL,
@@ -94,5 +93,6 @@ typedef enum {
 extern void gui_allegro_init(ALLEGRO_EVENT_QUEUE *queue, ALLEGRO_DISPLAY *display);
 extern void gui_allegro_event(ALLEGRO_EVENT *event);
 extern void gui_allegro_set_eject_text(int drive, ALLEGRO_PATH *path);
+extern void gui_set_disc_wprot(int drive, bool enabled);
 
 #endif

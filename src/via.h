@@ -6,6 +6,7 @@ typedef struct VIA
         uint8_t  ora,   orb,   ira,   irb;
         uint8_t  ddra,  ddrb;
         uint8_t  sr;
+        uint8_t  t1pb7;
         uint32_t t1l,   t2l;
         int      t1c,   t2c;
         uint8_t  acr,   pcr,   ifr,   ier;
@@ -29,7 +30,6 @@ typedef struct VIA
 uint8_t via_read(VIA *v, uint16_t addr);
 void    via_write(VIA *v, uint16_t addr, uint8_t val);
 void    via_reset(VIA *v);
-void    via_updatetimers(VIA *v);
 void    via_shift(VIA *v, int cycles);
 
 void via_set_ca1(VIA *v, int level);
@@ -40,14 +40,6 @@ void via_set_cb2(VIA *v, int level);
 void via_savestate(VIA *v, FILE *f);
 void via_loadstate(VIA *v, FILE *f);
 
-static inline void via_poll(VIA *v, int cycles) {
-    v->t1c -= cycles;
-    if (!(v->acr & 0x20))
-        v->t2c -= cycles;
-    if (v->t1c < -3 || v->t2c < -3)
-        via_updatetimers(v);
-    if (v->acr & 0x1c)
-        via_shift(v, cycles);
-}
+void via_poll(VIA *v, int cycles);
 
 #endif
