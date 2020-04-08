@@ -12,6 +12,7 @@ autom4te.cache/
 b-em
 b-em.exe
 b-em.res
+b-em.ilk
 config.log
 config.status
 configure
@@ -34,3 +35,13 @@ src/gtest.exe
 src/fsmap
 src/hdfmt
 src/fdresize
+packages/*
+src/Debug/*
+src/Release/*
+b-em.iobj
+b-em.ipdb
+b-em.iobj
+b-em.pdb
+src/hdfmt.exe
+scsi/*
+
