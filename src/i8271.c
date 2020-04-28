@@ -143,7 +143,7 @@ uint8_t i8271_read(uint16_t addr)
                 i8271_NMI();
   //              output=1; timetolive=50;
                 return i8271.result;
-            case 4: /*Data register*/
+	    case 4: case 5: case 6: case 7: /*Data register*/
                 //log_debug("i8271: Read data reg %04X %02X\n",pc,i8271.data);
                 i8271.status &= ~0xC;
                 i8271_NMI();
@@ -323,7 +323,7 @@ void i8271_write(uint16_t addr, uint8_t val)
                 if (val & 1) i8271_reset();
 
                 break;
-            case 4: /*Data register*/
+	    case 4: case 5: case 6: case 7: /*Data register*/
                 i8271.data = val;
                 i8271.written = 1;
                 i8271.status &= ~0xC;
